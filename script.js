@@ -260,12 +260,20 @@ function renderArticle(summary, numberStr, lang) {
   els.articleTitle.textContent = summary.title || "—";
   els.articleSeed.textContent = `#${numberStr} · ${lang}`;
 
-  let html = "";
-  if (summary.thumbnail?.source) {
-    html += `<img src="${summary.thumbnail.source}" alt="${summary.title}" />`;
+  const textHtml = `<div class="extract-text"><p>${summary.extract || ""}</p></div>`;
+  els.articleExtract.innerHTML = textHtml;
+
+  const thumb = summary.thumbnail;
+  if (thumb?.source) {
+    const img = document.createElement("img");
+    img.src = thumb.source;
+    img.alt = summary.title || "";
+
+    const isTall = thumb.height && thumb.width && (thumb.height / thumb.width) > 1.15;
+    img.className = isTall ? "img-tall" : "img-wide";
+
+    els.articleExtract.appendChild(img);
   }
-  html += `<p>${summary.extract || ""}</p>`;
-  els.articleExtract.innerHTML = html;
 
   els.articleLink.href = summary.content_urls?.desktop?.page || "#";
 

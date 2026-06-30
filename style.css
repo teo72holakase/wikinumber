@@ -4,8 +4,9 @@
    ========================================= */
 
 :root {
-  --font-title: 'Cinzel Decorative', serif;
+  --font-title: 'Federo', cursive;
   --font-body: 'Space Grotesk', sans-serif;
+  --font-wiki: Georgia, 'Linux Libertine', 'Times New Roman', serif;
   --radius: 14px;
   --transition: 0.25s ease;
 }
@@ -139,6 +140,7 @@ main {
 
 #numberInput {
   flex: 1 1 280px;
+  width: 100%;
   max-width: 380px;
   padding: 14px 18px;
   border-radius: var(--radius);
@@ -240,6 +242,7 @@ main {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 28px;
+  font-family: var(--font-wiki);
   animation: fadeIn 0.5s ease;
 }
 
@@ -255,12 +258,14 @@ main {
   flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 16px;
+  font-family: var(--font-body);
 }
 
 #articleTitle {
   margin: 0;
   color: var(--accent);
-  font-family: var(--font-title);
+  font-family: var(--font-wiki);
+  font-weight: 700;
 }
 
 .seed-tag {
@@ -269,27 +274,56 @@ main {
   border: 1px solid var(--border);
   padding: 3px 10px;
   border-radius: 999px;
+  font-family: var(--font-body);
 }
 
+/* Contenedor flexible: la imagen va a la derecha si es "horizontal",
+   o abajo a ancho completo si es "vertical/larga" */
 .article-extract {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-start;
   line-height: 1.8;
-  font-size: 1rem;
+  font-size: 1.05rem;
   margin-bottom: 18px;
 }
 
-.article-extract img {
-  max-width: 100%;
-  border-radius: 8px;
-  float: right;
-  margin: 0 0 12px 16px;
-  max-height: 220px;
+.article-extract .extract-text {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.article-extract .extract-text p {
+  margin: 0;
+}
+
+/* Imagen apaisada (ancha) -> a la derecha del texto */
+.article-extract img.img-wide {
+  flex: 0 1 260px;
+  max-width: 260px;
+  width: 100%;
+  border-radius: 10px;
   object-fit: cover;
+  max-height: 220px;
+}
+
+/* Imagen vertical/larga -> ocupa ancho completo debajo del texto */
+.article-extract img.img-tall {
+  flex: 1 1 100%;
+  width: 100%;
+  max-height: 420px;
+  border-radius: 10px;
+  object-fit: cover;
+  object-position: top;
+  order: 99;
 }
 
 #articleLink {
   color: var(--accent);
   text-decoration: none;
   font-weight: 600;
+  font-family: var(--font-body);
 }
 
 #articleLink:hover { text-decoration: underline; }
@@ -351,5 +385,6 @@ main {
 @media (max-width: 600px) {
   .topbar-inner { justify-content: center; }
   .search-wrap { flex-direction: column; align-items: stretch; }
+  #numberInput { flex: none; width: 100%; max-width: 100%; }
   #searchBtn { width: 100%; }
 }
