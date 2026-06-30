@@ -5,10 +5,36 @@
 /* ---------------------------------------
    1. ESTADO Y PERSISTENCIA EN MEMORIA
 --------------------------------------- */
+const STORAGE_KEY = "wikinumber_prefs";
+
+function loadPrefs() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw);
+  } catch (e) {
+    return {};
+  }
+}
+
+function savePrefs() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      theme: state.theme,
+      accent: state.accent,
+      lang: state.lang
+    }));
+  } catch (e) {
+    // localStorage no disponible (modo privado, etc.) - seguimos sin guardar
+  }
+}
+
+const savedPrefs = loadPrefs();
+
 const state = {
-  theme: "dark",
-  accent: "orange",
-  lang: "es",
+  theme: savedPrefs.theme || "dark",
+  accent: savedPrefs.accent || "orange",
+  lang: savedPrefs.lang || "es",
   lastNumber: null
 };
 
@@ -42,11 +68,13 @@ function applyTheme(theme) {
   state.theme = theme;
   els.body.setAttribute("data-theme", theme);
   els.themeIcon.textContent = theme === "dark" ? "🌙" : "☀️";
+  savePrefs();
 }
 
 function applyAccent(accent) {
   state.accent = accent;
   els.body.setAttribute("data-accent", accent);
+  savePrefs();
 }
 
 function applyLang(lang) {
@@ -64,6 +92,7 @@ function applyLang(lang) {
   });
 
   document.documentElement.lang = lang.startsWith("es") ? "es" : lang;
+  savePrefs();
 
   // Si ya había un artículo cargado, re-buscarlo en el nuevo idioma
   if (state.lastNumber !== null) {
@@ -114,26 +143,11 @@ function stableHash(str) {
 
 /* ---------------------------------------
    6. WIKIPEDIA: obtener artículo determinístico
-   Estrategia:
-   a) Generamos un hash del número.
-   b) Usamos la API "allpages" de Wikipedia en español
-      (idioma base estable, siempre existe) con
-      gapfrom calculado a partir de las primeras letras
-      generadas por el hash -> esto da un punto de partida
-      consistente en el índice alfabético de páginas.
-   c) Tomamos el primer resultado válido (namespace 0,
-      sin redirecciones) de esa posición.
-   d) Si el idioma de interfaz no es "es", buscamos el
-      langlink correspondiente vía la API "langlinks".
-      Si no existe, fallback a inglés, luego español.
 --------------------------------------- */
 
 const ALPHABET = "abcdefghijklmnopqrstuvwxyz";
 
 function hashToSeedTitle(hash) {
-  // Convertimos el hash en una secuencia de 3 letras
-  // pseudoaleatorias pero deterministas, usada como
-  // punto de partida alfabético en allpages.
   const a = ALPHABET[hash % 26];
   const b = ALPHABET[Math.floor(hash / 26) % 26];
   const c = ALPHABET[Math.floor(hash / 676) % 26];
@@ -144,7 +158,6 @@ async function getDeterministicPage(numberStr, wikiLang) {
   const hash = stableHash(numberStr);
   const seed = hashToSeedTitle(hash);
 
-  // Paso 1: listado de páginas reales a partir del punto alfabético
   const allpagesUrl = `https://${wikiLang}.wikipedia.org/w/api.php` +
     `?action=query&list=allpages&apnamespace=0&apfilterredir=nonredirects` +
     `&aplimit=20&apfrom=${encodeURIComponent(seed)}&format=json&origin=*`;
@@ -156,8 +169,6 @@ async function getDeterministicPage(numberStr, wikiLang) {
   const pages = data?.query?.allpages || [];
   if (pages.length === 0) throw new Error("no_pages_found");
 
-  // Paso 2: elegimos un índice estable dentro de los resultados
-  // usando el mismo hash (no random real)
   const index = hash % pages.length;
   return pages[index]; // { pageid, title }
 }
@@ -222,14 +233,12 @@ async function fetchArticleForNumber(numberStr) {
 
   showLoading();
 
-  const baseLang = "es"; // idioma base, siempre disponible y estable
+  const baseLang = "es";
   const targetLang = WIKI_LANG_MAP[state.lang] || "es";
 
   try {
-    // 1. Obtenemos la página base determinística (en español, base estable)
     const basePage = await getDeterministicPage(numberStr, baseLang);
 
-    // 2. Si el idioma destino es distinto, intentamos traducir
     let finalLang = baseLang;
     let finalTitle = basePage.title;
 
@@ -239,20 +248,16 @@ async function fetchArticleForNumber(numberStr) {
         finalLang = translated.lang;
         finalTitle = translated.title;
       } else {
-        // Fallback: intentamos inglés
         const enFallback = await getLanglinkTitle(basePage.title, baseLang, "en");
         if (enFallback) {
           finalLang = enFallback.lang;
           finalTitle = enFallback.title;
         }
-        // Si tampoco hay inglés, nos quedamos en español (ya está seteado)
       }
     }
 
-    // 3. Obtenemos el resumen del artículo final
     const summary = await getArticleSummary(finalLang, finalTitle);
 
-    // 4. Si no tiene imagen, buscamos una de respaldo en español o inglés
     if (!summary?.thumbnail?.source) {
       const fallbackThumb = await getFallbackThumbnail(basePage.title, baseLang, finalLang);
       if (fallbackThumb) {
@@ -301,9 +306,6 @@ function renderArticle(summary, numberStr, lang) {
     img.src = thumb.source;
     img.alt = summary.title || "";
 
-    // Decidimos según la proporción real reportada por la API
-    // (width/height). Si es más alta que ancha (retrato/larga),
-    // va abajo a ancho completo; si es apaisada o cuadrada, va al lado.
     const isTall = thumb.height && thumb.width && (thumb.height / thumb.width) > 1.15;
     img.className = isTall ? "img-tall" : "img-wide";
 
