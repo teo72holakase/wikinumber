@@ -7,7 +7,7 @@
 --------------------------------------- */
 const state = {
   theme: "dark",
-  accent: "violet",
+  accent: "orange",
   lang: "es",
   lastNumber: null
 };
