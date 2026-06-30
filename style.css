@@ -295,7 +295,37 @@ main {
 }
 
 .article-extract .extract-text p {
-  margin: 0;
+  margin: 0 0 14px;
+}
+
+.article-extract .extract-text p:last-child {
+  margin-bottom: 0;
+}
+
+.article-extract .extract-text ul,
+.article-extract .extract-text ol {
+  margin: 0 0 14px;
+  padding-left: 22px;
+}
+
+.article-extract .extract-text li {
+  margin-bottom: 6px;
+}
+
+.article-extract .extract-text b,
+.article-extract .extract-text strong {
+  color: inherit;
+}
+
+.article-extract .extract-text a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--accent);
+}
+
+.article-extract .extract-text a:hover {
+  text-decoration: none;
+  border-bottom-style: solid;
 }
 
 /* Imagen apaisada (ancha) -> a la derecha del texto */

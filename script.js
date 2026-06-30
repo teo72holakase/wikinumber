@@ -143,11 +143,26 @@ function stableHash(str) {
 
 /* ---------------------------------------
    6. WIKIPEDIA: obtener artículo determinístico
+   Estrategia:
+   a) Generamos un hash del número.
+   b) Usamos la API "allpages" de Wikipedia en español
+      (idioma base estable, siempre existe) con
+      gapfrom calculado a partir de las primeras letras
+      generadas por el hash -> esto da un punto de partida
+      consistente en el índice alfabético de páginas.
+   c) Tomamos el primer resultado válido (namespace 0,
+      sin redirecciones) de esa posición.
+   d) Si el idioma de interfaz no es "es", buscamos el
+      langlink correspondiente vía la API "langlinks".
+      Si no existe, fallback a inglés, luego español.
 --------------------------------------- */
 
 const ALPHABET = "abcdefghijklmnopqrstuvwxyz";
 
 function hashToSeedTitle(hash) {
+  // Convertimos el hash en una secuencia de 3 letras
+  // pseudoaleatorias pero deterministas, usada como
+  // punto de partida alfabético en allpages.
   const a = ALPHABET[hash % 26];
   const b = ALPHABET[Math.floor(hash / 26) % 26];
   const c = ALPHABET[Math.floor(hash / 676) % 26];
@@ -158,6 +173,7 @@ async function getDeterministicPage(numberStr, wikiLang) {
   const hash = stableHash(numberStr);
   const seed = hashToSeedTitle(hash);
 
+  // Paso 1: listado de páginas reales a partir del punto alfabético
   const allpagesUrl = `https://${wikiLang}.wikipedia.org/w/api.php` +
     `?action=query&list=allpages&apnamespace=0&apfilterredir=nonredirects` +
     `&aplimit=20&apfrom=${encodeURIComponent(seed)}&format=json&origin=*`;
@@ -169,6 +185,8 @@ async function getDeterministicPage(numberStr, wikiLang) {
   const pages = data?.query?.allpages || [];
   if (pages.length === 0) throw new Error("no_pages_found");
 
+  // Paso 2: elegimos un índice estable dentro de los resultados
+  // usando el mismo hash (no random real)
   const index = hash % pages.length;
   return pages[index]; // { pageid, title }
 }
@@ -199,6 +217,42 @@ async function getArticleSummary(lang, title) {
   const res = await fetch(url);
   if (!res.ok) throw new Error("summary_failed");
   return res.json();
+}
+
+// Obtiene el extracto en HTML real (con <p>, <ul><li>, etc.) en vez del
+// texto plano aplanado que da la API de "summary". Esto respeta los
+// párrafos y listas tal como aparecen en el artículo (clave para
+// desambiguaciones como "Ve", que son listas, no prosa continua).
+async function getArticleExtractHtml(lang, title) {
+  const url = `https://${lang}.wikipedia.org/w/api.php` +
+    `?action=query&prop=extracts&exintro=1&titles=${encodeURIComponent(title)}` +
+    `&format=json&formatversion=2&origin=*`;
+
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  const data = await res.json();
+  const page = data?.query?.pages?.[0];
+  return page?.extract || null;
+}
+
+// Convierte enlaces relativos (/wiki/...) en absolutos y los abre en
+// pestaña nueva, para que funcionen dentro de nuestro marco incrustado.
+function fixWikiLinks(html, lang) {
+  const container = document.createElement("div");
+  container.innerHTML = html;
+
+  container.querySelectorAll("a").forEach(a => {
+    const href = a.getAttribute("href");
+    if (href && href.startsWith("/wiki/")) {
+      a.setAttribute("href", `https://${lang}.wikipedia.org${href}`);
+      a.setAttribute("target", "_blank");
+      a.setAttribute("rel", "noopener");
+    } else if (href && href.startsWith("#")) {
+      a.removeAttribute("href");
+    }
+  });
+
+  return container.innerHTML;
 }
 
 // Si el resumen final no trae imagen, buscamos la imagen del mismo
@@ -233,12 +287,14 @@ async function fetchArticleForNumber(numberStr) {
 
   showLoading();
 
-  const baseLang = "es";
+  const baseLang = "es"; // idioma base, siempre disponible y estable
   const targetLang = WIKI_LANG_MAP[state.lang] || "es";
 
   try {
+    // 1. Obtenemos la página base determinística (en español, base estable)
     const basePage = await getDeterministicPage(numberStr, baseLang);
 
+    // 2. Si el idioma destino es distinto, intentamos traducir
     let finalLang = baseLang;
     let finalTitle = basePage.title;
 
@@ -248,16 +304,23 @@ async function fetchArticleForNumber(numberStr) {
         finalLang = translated.lang;
         finalTitle = translated.title;
       } else {
+        // Fallback: intentamos inglés
         const enFallback = await getLanglinkTitle(basePage.title, baseLang, "en");
         if (enFallback) {
           finalLang = enFallback.lang;
           finalTitle = enFallback.title;
         }
+        // Si tampoco hay inglés, nos quedamos en español (ya está seteado)
       }
     }
 
+    // 3. Obtenemos el resumen del artículo final (metadata: título, imagen, link)
     const summary = await getArticleSummary(finalLang, finalTitle);
 
+    // 3b. Obtenemos el cuerpo en HTML real, con párrafos y listas respetados
+    const extractHtml = await getArticleExtractHtml(finalLang, finalTitle);
+
+    // 4. Si no tiene imagen, buscamos una de respaldo en español o inglés
     if (!summary?.thumbnail?.source) {
       const fallbackThumb = await getFallbackThumbnail(basePage.title, baseLang, finalLang);
       if (fallbackThumb) {
@@ -265,7 +328,7 @@ async function fetchArticleForNumber(numberStr) {
       }
     }
 
-    renderArticle(summary, numberStr, finalLang);
+    renderArticle(summary, numberStr, finalLang, extractHtml);
   } catch (err) {
     console.error(err);
     showError();
@@ -289,7 +352,7 @@ function showError() {
   els.errorZone.classList.remove("hidden");
 }
 
-function renderArticle(summary, numberStr, lang) {
+function renderArticle(summary, numberStr, lang, extractHtml) {
   els.loadingZone.classList.add("hidden");
   els.errorZone.classList.add("hidden");
   els.emptyZone.classList.add("hidden");
@@ -297,8 +360,13 @@ function renderArticle(summary, numberStr, lang) {
   els.articleTitle.textContent = summary.title || "—";
   els.articleSeed.textContent = `#${numberStr} · ${lang}`;
 
-  const textHtml = `<div class="extract-text"><p>${summary.extract || ""}</p></div>`;
-  els.articleExtract.innerHTML = textHtml;
+  // Preferimos el HTML real (párrafos, listas) y caemos al texto plano
+  // del resumen solo si por algún motivo no se pudo obtener.
+  const bodyHtml = extractHtml
+    ? fixWikiLinks(extractHtml, lang)
+    : `<p>${summary.extract || ""}</p>`;
+
+  els.articleExtract.innerHTML = `<div class="extract-text">${bodyHtml}</div>`;
 
   const thumb = summary.thumbnail;
   if (thumb?.source) {
@@ -306,6 +374,9 @@ function renderArticle(summary, numberStr, lang) {
     img.src = thumb.source;
     img.alt = summary.title || "";
 
+    // Decidimos según la proporción real reportada por la API
+    // (width/height). Si es más alta que ancha (retrato/larga),
+    // va abajo a ancho completo; si es apaisada o cuadrada, va al lado.
     const isTall = thumb.height && thumb.width && (thumb.height / thumb.width) > 1.15;
     img.className = isTall ? "img-tall" : "img-wide";
 
