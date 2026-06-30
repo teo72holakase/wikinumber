@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>WikiNumber</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body data-theme="dark" data-accent="violet">
+
+  <!-- Barra superior de controles -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="control">
+        <label for="themeToggle" data-i18n="theme_label">Tema</label>
+        <button id="themeToggle" class="icon-btn" aria-label="Cambiar tema">
+          <span id="themeIcon">🌙</span>
+        </button>
+      </div>
+
+      <div class="control">
+        <label for="accentSelect" data-i18n="accent_label">Color</label>
+        <select id="accentSelect">
+          <option value="violet">Violeta</option>
+          <option value="blue">Azul</option>
+          <option value="green">Verde</option>
+          <option value="orange">Naranja</option>
+          <option value="pink">Rosa</option>
+          <option value="cyan">Cian</option>
+        </select>
+      </div>
+
+      <div class="control">
+        <label for="langSelect" data-i18n="lang_label">Idioma</label>
+        <select id="langSelect">
+          <option value="es">Español (Latam)</option>
+          <option value="es-ES">Español (España)</option>
+          <option value="en">English</option>
+          <option value="pt">Português</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <h1 class="title">WikiNumber</h1>
+
+    <div class="search-wrap">
+      <input
+        id="numberInput"
+        type="text"
+        inputmode="numeric"
+        maxlength="100"
+        placeholder="Ej: 3, 1990, 42..."
+        data-i18n-placeholder="input_placeholder"
+        autocomplete="off"
+      />
+      <button id="searchBtn" data-i18n="search_btn">Buscar artículo</button>
+    </div>
+
+    <!-- Tabs -->
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="article" data-i18n="tab_article">Artículo</button>
+      <button class="tab-btn" data-tab="how" data-i18n="tab_how">Cómo funciona</button>
+      <button class="tab-btn" data-tab="why" data-i18n="tab_why">Por qué se creó</button>
+    </nav>
+
+    <section id="panel-article" class="panel active">
+      <div id="loadingZone" class="loading-zone hidden">
+        <div class="orbit-loader">
+          <div class="orbit-core"></div>
+          <div class="orbit-ring r1"></div>
+          <div class="orbit-ring r2"></div>
+          <div class="orbit-ring r3"></div>
+        </div>
+        <p data-i18n="loading_text">Calculando coordenadas del conocimiento...</p>
+      </div>
+
+      <div id="errorZone" class="error-zone hidden">
+        <p data-i18n="error_text">No se pudo cargar el artículo. Intenta con otro número.</p>
+      </div>
+
+      <div id="resultFrame" class="result-frame hidden">
+        <div class="result-meta">
+          <h2 id="articleTitle"></h2>
+          <span id="articleSeed" class="seed-tag"></span>
+        </div>
+        <div id="articleExtract" class="article-extract"></div>
+        <a id="articleLink" href="#" target="_blank" rel="noopener" data-i18n="read_more">
+          Leer artículo completo en Wikipedia →
+        </a>
+      </div>
+
+      <div id="emptyZone" class="empty-zone">
+        <p data-i18n="empty_text">Introduce un número arriba para descubrir su artículo asociado.</p>
+      </div>
+    </section>
+
+    <section id="panel-how" class="panel">
+      <div class="text-card">
+        <h2 data-i18n="how_title">¿Cómo funciona WikiNumber?</h2>
+        <p data-i18n="how_p1">
+          WikiNumber convierte cualquier número que introduzcas en una coordenada determinística
+          dentro del universo de artículos de Wikipedia. Esto significa que el mismo número
+          siempre te devolverá el mismo artículo, sin importar cuándo, desde dónde o en qué
+          navegador lo busques.
+        </p>
+        <p data-i18n="how_p2">
+          Internamente, el número se transforma mediante un algoritmo de hash en un identificador
+          estable que apunta a una página real de Wikipedia. Si cambias el idioma de la página,
+          WikiNumber buscará automáticamente la versión equivalente del mismo artículo en ese idioma;
+          si no existe traducción disponible, se mostrará en inglés o español como alternativa.
+        </p>
+        <p data-i18n="how_p3">
+          Sirve como una forma curiosa de exploración: un generador de descubrimiento aleatorio
+          pero reproducible, ideal para juegos, retos, casualidades numéricas (tu cumpleaños,
+          tu edad, tu DNI) o simple curiosidad.
+        </p>
+      </div>
+    </section>
+
+    <section id="panel-why" class="panel">
+      <div class="text-card">
+        <h2 data-i18n="why_title">¿Por qué se creó WikiNumber?</h2>
+        <p data-i18n="why_p1">
+          <!-- Este campo lo personaliza el autor -->
+          Este espacio está reservado para que cuentes, en tus propias palabras, la historia
+          detrás de WikiNumber: qué te inspiró, qué problema curioso querías resolver o qué
+          experimento te llevó a construir esta página. Edita este texto en translations.js.
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>WikiNumber © 2026</p>
+  </footer>
+
+  <script src="translations.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
