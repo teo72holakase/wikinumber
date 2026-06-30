@@ -190,6 +190,30 @@ async function getArticleSummary(lang, title) {
   return res.json();
 }
 
+// Si el resumen final no trae imagen, buscamos la imagen del mismo
+// artículo en español (idioma base) o, si tampoco hay, en inglés.
+async function getFallbackThumbnail(baseTitle, baseLang, excludeLang) {
+  const langsToTry = [baseLang, "en"].filter(l => l !== excludeLang);
+
+  for (const lang of langsToTry) {
+    try {
+      let title = baseTitle;
+      if (lang !== baseLang) {
+        const link = await getLanglinkTitle(baseTitle, baseLang, lang);
+        if (!link) continue;
+        title = link.title;
+      }
+      const summary = await getArticleSummary(lang, title);
+      if (summary?.thumbnail?.source) {
+        return summary.thumbnail;
+      }
+    } catch (e) {
+      continue;
+    }
+  }
+  return null;
+}
+
 /* ---------------------------------------
    7. FLUJO PRINCIPAL DE BÚSQUEDA
 --------------------------------------- */
@@ -227,6 +251,14 @@ async function fetchArticleForNumber(numberStr) {
 
     // 3. Obtenemos el resumen del artículo final
     const summary = await getArticleSummary(finalLang, finalTitle);
+
+    // 4. Si no tiene imagen, buscamos una de respaldo en español o inglés
+    if (!summary?.thumbnail?.source) {
+      const fallbackThumb = await getFallbackThumbnail(basePage.title, baseLang, finalLang);
+      if (fallbackThumb) {
+        summary.thumbnail = fallbackThumb;
+      }
+    }
 
     renderArticle(summary, numberStr, finalLang);
   } catch (err) {
@@ -269,6 +301,9 @@ function renderArticle(summary, numberStr, lang) {
     img.src = thumb.source;
     img.alt = summary.title || "";
 
+    // Decidimos según la proporción real reportada por la API
+    // (width/height). Si es más alta que ancha (retrato/larga),
+    // va abajo a ancho completo; si es apaisada o cuadrada, va al lado.
     const isTall = thumb.height && thumb.width && (thumb.height / thumb.width) > 1.15;
     img.className = isTall ? "img-tall" : "img-wide";
 
@@ -291,6 +326,24 @@ function handleSearch() {
   if (!raw) return;
   fetchArticleForNumber(raw);
 }
+
+// Solo permitimos dígitos 0-9, nada más (ni letras, ni guiones, ni símbolos)
+els.numberInput.addEventListener("input", (e) => {
+  const cleaned = e.target.value.replace(/[^0-9]/g, "");
+  if (cleaned !== e.target.value) {
+    e.target.value = cleaned;
+  }
+});
+
+els.numberInput.addEventListener("paste", (e) => {
+  e.preventDefault();
+  const text = (e.clipboardData || window.clipboardData).getData("text");
+  const cleaned = text.replace(/[^0-9]/g, "");
+  const start = e.target.selectionStart;
+  const end = e.target.selectionEnd;
+  const current = e.target.value;
+  e.target.value = current.slice(0, start) + cleaned + current.slice(end);
+});
 
 els.searchBtn.addEventListener("click", handleSearch);
 els.numberInput.addEventListener("keydown", (e) => {
