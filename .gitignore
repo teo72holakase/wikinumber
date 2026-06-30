@@ -37,3 +37,7 @@ package-lock.json
 # Archivos temporales
 *.tmp
 *.bak
+
+.dev.vars*
+!.dev.vars.example
+!.env.example
